@@ -70,4 +70,3 @@ The app identifier is `com.northstar.lifeos`. An iPhone build needs macOS and Xc
 ## Versioning
 
 The app version is set in `package.json`. Use a new semantic version for each update and publish it with a matching Git tag such as `v0.1.1`; do not reuse an existing tag. Keep each version as a separate GitHub Release so its installer downloads remain available.
-

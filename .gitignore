@@ -1,0 +1,14 @@
+node_modules/
+out/
+release/
+.gradle-home/
+.npm-cache/
+.tmp/
+.electron-builder-cache/
+android/.gradle/
+android/local.properties
+android/**/build/
+android/captures/
+android/.idea/
+*.log
+.DS_Store

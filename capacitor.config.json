@@ -1,0 +1,8 @@
+{
+  "appId": "com.northstar.lifeos",
+  "appName": "Northstar",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

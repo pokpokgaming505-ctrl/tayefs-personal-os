@@ -1,0 +1,59 @@
+{
+  "name": "northstar-personal-os",
+  "productName": "Northstar",
+  "version": "0.1.0",
+  "description": "Your personal workspace for health, study, projects, and ideas.",
+  "author": "Northstar",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node scripts/generate-icons.cjs",
+    "make:windows": "electron-builder --win nsis --x64",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android",
+    "android:debug": "set \"GRADLE_USER_HOME=%CD%\\.gradle-home\" && npm run android:sync && cd android && gradlew.bat assembleDebug",
+    "android:release": "set \"GRADLE_USER_HOME=%CD%\\.gradle-home\" && npm run android:sync && cd android && gradlew.bat assembleRelease",
+    "android:open": "cap open android"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/cli": "^7.6.10",
+    "@capacitor/core": "^7.6.10",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.northstar.lifeos",
+    "productName": "Northstar",
+    "asar": true,
+    "directories": {
+      "output": "release/windows"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "www/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "assets/northstar.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Northstar-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Northstar"
+    }
+  }
+}
