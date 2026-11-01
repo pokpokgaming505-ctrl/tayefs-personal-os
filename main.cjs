@@ -4,6 +4,8 @@ const fs = require("node:fs/promises");
 
 const APP_ID = "com.northstar.lifeos";
 app.setAppUserModelId(APP_ID);
+// Keep the v0.1 Windows profile path so the rebranded app can keep its local browser data.
+app.setPath("userData", path.join(app.getPath("appData"), "Northstar"));
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -13,7 +15,7 @@ function createWindow() {
     minHeight: 620,
     backgroundColor: "#10120f",
     autoHideMenuBar: true,
-    title: "Northstar | Personal OS",
+    title: "TAYEF'S | Personal OS",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -29,13 +31,13 @@ function createWindow() {
   win.loadFile(path.join(__dirname, "www", "index.html"));
 }
 
-ipcMain.handle("northstar:save-backup", async (_event, payload) => {
+ipcMain.handle("tayefs:save-backup", async (_event, payload) => {
   if (!payload || typeof payload.json !== "string" || payload.json.length > 20_000_000) {
     throw new Error("Invalid backup data.");
   }
   const { canceled, filePath } = await dialog.showSaveDialog({
-    title: "Save Northstar backup",
-    defaultPath: path.basename(String(payload.filename || "northstar-backup.json")),
+    title: "Save TAYEF'S backup",
+    defaultPath: path.basename(String(payload.filename || "tayefs-backup.json")),
     filters: [{ name: "JSON backup", extensions: ["json"] }]
   });
   if (canceled || !filePath) return { saved: false };

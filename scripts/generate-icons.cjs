@@ -5,7 +5,7 @@ const zlib = require("node:zlib");
 const root = path.resolve(__dirname, "..");
 const background = [16, 18, 15];
 const foreground = [214, 243, 106];
-const polygon = [[105,389],[105,123],[180,123],[331,287],[331,123],[407,123],[407,389],[339,389],[181,218],[181,389]];
+const polygon = [[104,112],[408,112],[408,188],[292,188],[292,400],[220,400],[220,188],[104,188]];
 
 function inRoundedSquare(x,y) {
   const size=512, radius=112;
@@ -40,7 +40,8 @@ function renderPng(size, foregroundOnly=false) {
       let bgCount=0,fgCount=0;
       for(let sy=0;sy<4;sy++)for(let sx=0;sx<4;sx++){
         const px=(x+(sx+.5)/4)*512/size, py=(y+(sy+.5)/4)*512/size;
-        const shape=inPolygon(px,py)||((px-390)**2+(py-390)**2<=23**2);
+        const spark=Math.abs(px-382)+Math.abs(py-326)<38;
+        const shape=inPolygon(px,py)||spark;
         if(shape)fgCount++;
         else if(!foregroundOnly && inRoundedSquare(px,py))bgCount++;
       }
@@ -68,8 +69,8 @@ function writeIco(file,sizes) {
 }
 
 const assets=path.join(root,"assets");fs.mkdirSync(assets,{recursive:true});
-writeIco(path.join(assets,"northstar.ico"),[16,24,32,48,64,128,256]);
-fs.writeFileSync(path.join(assets,"northstar-512.png"),renderPng(512));
+writeIco(path.join(assets,"tayefs.ico"),[16,24,32,48,64,128,256]);
+fs.writeFileSync(path.join(assets,"tayefs-512.png"),renderPng(512));
 const res=path.join(root,"android","app","src","main","res");
 const densities={mdpi:48,hdpi:72,xhdpi:96,xxhdpi:144,xxxhdpi:192};
 for(const [density,size] of Object.entries(densities)){
@@ -78,4 +79,4 @@ for(const [density,size] of Object.entries(densities)){
   fs.writeFileSync(path.join(dir,"ic_launcher_round.png"),renderPng(size));
   fs.writeFileSync(path.join(dir,"ic_launcher_foreground.png"),renderPng(size,true));
 }
-console.log("Northstar Windows and Android icons generated.");
+console.log("TAYEF'S Windows and Android icons generated.");

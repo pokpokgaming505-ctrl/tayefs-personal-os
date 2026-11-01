@@ -1,5 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld("northstarDesktop", {
-  saveBackup: payload => ipcRenderer.invoke("northstar:save-backup", payload)
+contextBridge.exposeInMainWorld("tayefsDesktop", {
+  saveBackup: payload => ipcRenderer.invoke("tayefs:save-backup", payload)
 });

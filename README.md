@@ -1,72 +1,65 @@
-# Northstar — Personal OS
+# TAYEF'S — Personal OS
 
-Northstar is being built as a dedicated desktop and Android app. The shared interface is embedded inside native app shells, so using it does not require a browser tab or a hosted website.
+TAYEF'S is a dedicated Windows and Android app for keeping health, study, projects, reading, and ideas together. The native app shells load the same local interface; it does not require a hosted website.
 
 ## Download and install
 
-Download the newest app builds from the [GitHub Releases page](https://github.com/pokpokgaming505-ctrl/northstar-personal-os/releases/latest). Older builds stay available in the [complete release history](https://github.com/pokpokgaming505-ctrl/northstar-personal-os/releases).
+Get the newest builds from the [GitHub Releases page](https://github.com/pokpokgaming505-ctrl/tayefs-personal-os/releases/latest). Earlier app versions remain in [release history](https://github.com/pokpokgaming505-ctrl/tayefs-personal-os/releases).
 
-- **Windows:** download `Northstar-Setup-<version>.exe`, open it, and follow the installer. This build is unsigned, so Windows may show an unverified publisher message.
-- **Android:** download `Northstar-Android-<version>.apk`, open it on the phone, and allow installation from that source if Android asks. This first APK is debug-signed for direct installation and is not a Play Store build.
+- **Windows:** download `TAYEFS-Setup-<version>.exe` and follow the installer. The installer is unsigned, so Windows may show an unverified publisher message.
+- **Android:** download `TAYEFS-Android-<version>.apk` and allow installation from that source if Android asks. Direct APKs are debug-signed and are not Play Store builds.
 
-Every published version has its own `v<version>` tag and GitHub Release. New releases add downloads without replacing earlier versions.
+Each app version has a separate semantic version tag and release. Publishing a new build does not replace old downloads.
 
-## Windows desktop
+## App features
 
-From this folder:
+- Dashboard, movement and rest tracking, study log and focus timer, projects, reading shelf, idea notes, and weekly reflection.
+- Four themes: Focus, Simple, Creator, and Bright.
+- Text size and Sans, Serif, or Mono font controls in the top bar.
+- Optional Gym and AI Models plugins, installed from the Plugins page.
+- On-device app data with JSON backup and restore.
+
+## Plugins
+
+Choose **Plugins → Install plugin** to add or remove a built-in feature. The Gym plugin appears as its own page and a shortcut in Health & fitness. It includes an editable one-month calendar, recovery days, per-day exercise lists, sets/reps, checkboxes, and notes. Its sample routine is a starting template; use qualified adult supervision and stop if a movement causes pain. See [AAP strength-training guidance](https://www.healthychildren.org/English/healthy-living/sports/Pages/Strength-Training.aspx).
+
+The **AI Models** plugin adds a general assistant and model settings. Add an OpenAI-compatible Chat Completions endpoint, model ID, and API key. Model names and endpoints are saved locally; API keys stay in memory only for the current app session and are not included in backups. The endpoint must support browser CORS. AI requests are sent only when you submit them; Gym shows a confirmation with the selected provider and health details before sending. AI does not automatically connect to other plugins: choose **Integrate AI with Gym plugin** from the Gym page.
+
+For users under 18, the Gym AI feature does not return calorie or protein targets, weight-loss plans, or supplement instructions. It can offer general meal ideas; ask a parent or guardian and a qualified health professional for personalized nutrition advice.
+
+Plugin manifests and release history are in `plugins/`. Current plugins have independent semantic versions and tags: `gym-v1.0.0` and `ai-models-v1.0.0`. The catalog currently ships with the app; new plugin code is delivered in a later app release, while previous app and plugin tags keep their source snapshots.
+
+## Build from source
+
+### Windows
 
 ```powershell
 npm install
 npm start
-```
-
-If the visual assets need to be regenerated after a change, run `npm run icons` first.
-
-Create the Windows installer with:
-
-```powershell
+npm run icons
 npm run make:windows
 ```
 
-The installer is written to `release/windows/Northstar-Setup-0.1.0.exe`. It creates Start Menu and desktop shortcuts.
+The installer is written to `release/windows/TAYEFS-Setup-<version>.exe`.
 
-## Android phone
+### Android
 
-Node.js 20+, Android Studio, Java 21, and the Android SDK are required. Create the Android project once, then build a debug APK:
+Node.js 20+, Java 21, Android Studio, and the Android SDK are required.
 
 ```powershell
 npm install
-npm run android:add
 npm run android:debug
 ```
 
-The installable debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. It is debug-signed for direct installation. A Play Store release still needs a signing key.
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
-## Current app features
+## Versioning and project layout
 
-- Daily dashboard and editable task list.
-- Health check-ins for movement and rest.
-- Study session log and focus timer.
-- Project board, reading shelf, idea notes, and weekly review.
-- Three visual styles: Focus OS, Simple life, and Creator lab.
-- Local data storage and JSON backup/restore.
-- Northstar icons in the Windows installer and Android launcher.
+- `package.json` — app version, installer, and product name.
+- `www/` — shared Windows/Android interface.
+- `plugins/` — plugin manifests and plugin-specific version history.
+- `main.cjs`, `preload.cjs` — Windows app shell.
+- `scripts/generate-icons.cjs` — Windows and Android logo/icon generator.
+- `android/` — Android native project.
 
-## Data
-
-There is no account or cloud sync in this version. App data is kept on the device. Back up the data before moving to a different device or clearing app storage.
-
-## Project layout
-
-- `www/` — interface shared by the native apps.
-- `main.cjs`, `preload.cjs` — Windows desktop app shell.
-- `package.json` — Windows installer and Android build configuration.
-- `scripts/generate-icons.cjs` — Windows and Android app icon generator.
-- `capacitor.config.json` — Android app configuration.
-- `android/` — generated native Android project after `npm run android:add`.
-
-The app identifier is `com.northstar.lifeos`. An iPhone build needs macOS and Xcode; this project currently outputs an Android APK.
-
-## Versioning
-
-The app version is set in `package.json`. Use a new semantic version for each update and publish it with a matching Git tag such as `v0.1.1`; do not reuse an existing tag. Keep each version as a separate GitHub Release so its installer downloads remain available.
+The native app ID remains `com.northstar.lifeos` so the TAYEF'S APK can update an existing installation. App data remains on each device; export a backup before changing or clearing a device. An iPhone build still requires macOS and Xcode.

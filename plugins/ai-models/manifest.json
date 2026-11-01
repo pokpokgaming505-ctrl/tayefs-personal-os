@@ -1,0 +1,11 @@
+{
+  "id": "ai-models",
+  "name": "AI Models",
+  "version": "1.0.0",
+  "releaseTag": "ai-models-v1.0.0",
+  "minAppVersion": "0.2.0",
+  "entryPoint": "www/app.js#aiView",
+  "description": "A general AI assistant and user-selected OpenAI-compatible model profiles.",
+  "apiKeys": "Memory only; re-enter when the app restarts.",
+  "dataTransmission": "User-initiated requests only, with confirmation before sending."
+}

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Northstar</string>
-    <string name="title_activity_main">Northstar</string>
+    <string name="app_name">TAYEF\'S</string>
+    <string name="title_activity_main">TAYEF\'S</string>
     <string name="package_name">com.northstar.lifeos</string>
     <string name="custom_url_scheme">com.northstar.lifeos</string>
 </resources>

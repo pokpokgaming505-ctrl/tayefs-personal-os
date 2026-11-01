@@ -3,26 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="A calm personal workspace for health, study, projects, and ideas." />
-  <title>Northstar | Personal OS</title>
+  <meta name="description" content="TAYEF'S personal space for health, study, projects, and ideas." />
+  <meta name="theme-color" content="#10120f" />
+  <title>TAYEF'S | Personal OS</title>
   <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./brand.css" />
 </head>
 <body class="theme-focus">
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="#dashboard" aria-label="Northstar home">
-        <span class="brand-mark">N</span>
-        <span><strong>NORTHSTAR</strong><small>PERSONAL OS</small></span>
+      <a class="brand" href="#dashboard" aria-label="TAYEF'S home">
+        <img class="brand-mark" src="./assets/icon.svg" alt="" />
+        <span><strong>TAYEF'S</strong><small>PERSONAL OS</small></span>
       </a>
       <div class="nav-caption">YOUR SPACE</div>
       <nav id="main-nav" class="main-nav" aria-label="Main navigation">
         <button class="nav-link active" data-view="dashboard"><span class="nav-icon">◫</span>Dashboard</button>
         <button class="nav-link" data-view="health"><span class="nav-icon">♡</span>Health & fitness</button>
+        <button class="nav-link hidden" data-view="gym" data-plugin-nav="gym"><span class="nav-icon">◈</span>Gym</button>
         <button class="nav-link" data-view="study"><span class="nav-icon">▤</span>Study room</button>
         <button class="nav-link" data-view="build"><span class="nav-icon">⌘</span>Build & create</button>
         <button class="nav-link" data-view="library"><span class="nav-icon">▧</span>Ideas & library</button>
         <button class="nav-link" data-view="review"><span class="nav-icon">↗</span>Weekly review</button>
+        <button class="nav-link hidden" data-view="ai" data-plugin-nav="ai-models"><span class="nav-icon">✦</span>AI</button>
+        <button class="nav-link" data-view="plugins"><span class="nav-icon">⊞</span>Plugins</button>
       </nav>
       <div class="sidebar-bottom">
         <div class="north-star-card"><span class="tiny-label">YOUR NORTH STAR</span><strong>Learn → Build → Share</strong><small>Small steps. Long horizon.</small></div>
@@ -35,7 +40,10 @@
         <div class="breadcrumb"><span>WORKSPACE</span><b>/</b><strong id="page-crumb">Dashboard</strong></div>
         <div class="top-actions">
           <span class="today-chip" id="today-chip"></span>
-          <label class="theme-picker"><span class="sr-only">Choose design style</span><select id="theme-select" aria-label="Choose design style"><option value="focus">Focus OS</option><option value="simple">Simple life</option><option value="creator">Creator lab</option></select></label>
+          <button class="icon-btn hidden ai-shortcut" data-view="ai" data-plugin-nav="ai-models" title="Open AI assistant">✦ AI</button>
+          <label class="theme-picker"><span class="sr-only">Choose theme</span><select id="theme-select" aria-label="Choose theme"><option value="focus">Focus</option><option value="simple">Simple</option><option value="creator">Creator</option><option value="bright">Bright</option></select></label>
+          <label class="theme-picker"><span class="sr-only">Choose font size</span><select id="text-size-select" aria-label="Choose font size"><option value="small">Text S</option><option value="normal">Text M</option><option value="large">Text L</option><option value="xlarge">Text XL</option></select></label>
+          <label class="theme-picker font-picker"><span class="sr-only">Choose font style</span><select id="font-style-select" aria-label="Choose font style"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option></select></label>
           <button class="icon-btn" id="export-btn" aria-label="Export a data backup" title="Export a data backup">↓</button>
           <button class="install-btn hidden" id="install-btn">Install app</button>
           <input class="hidden" id="import-file" type="file" accept="application/json,.json" />
@@ -43,12 +51,12 @@
       </header>
 
       <main id="page-content" class="page-content" tabindex="-1"></main>
-      <footer class="app-footer"><span>Northstar · Personal OS</span><span>Your data stays in this browser <i></i> <button id="import-btn" class="text-button">Restore backup</button></span></footer>
+      <footer class="app-footer"><span>TAYEF'S · Personal OS</span><span>Your data stays on this device <i></i> <button id="import-btn" class="text-button">Restore backup</button></span></footer>
     </div>
   </div>
 
   <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
-    <button class="active" data-view="dashboard"><span>◫</span>Home</button><button data-view="health"><span>♡</span>Health</button><button data-view="study"><span>▤</span>Study</button><button data-view="build"><span>⌘</span>Build</button><button data-view="library"><span>▧</span>Library</button>
+    <button class="active" data-view="dashboard"><span>◫</span>Home</button><button data-view="health"><span>♡</span>Health</button><button class="hidden" data-view="gym" data-plugin-nav="gym"><span>◈</span>Gym</button><button data-view="study"><span>▤</span>Study</button><button data-view="plugins"><span>⊞</span>Plugins</button>
   </nav>
   <dialog id="app-dialog" class="app-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close dialog">×</button></form><div id="dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>

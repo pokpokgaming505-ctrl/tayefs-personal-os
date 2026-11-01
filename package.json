@@ -1,9 +1,9 @@
 {
-  "name": "northstar-personal-os",
-  "productName": "Northstar",
-  "version": "0.1.0",
+  "name": "tayefs-personal-os",
+  "productName": "TAYEF'S",
+  "version": "0.2.0",
   "description": "Your personal workspace for health, study, projects, and ideas.",
-  "author": "Northstar",
+  "author": "Tayef",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -25,7 +25,7 @@
   },
   "build": {
     "appId": "com.northstar.lifeos",
-    "productName": "Northstar",
+    "productName": "TAYEF'S",
     "asar": true,
     "directories": {
       "output": "release/windows"
@@ -37,7 +37,7 @@
       "package.json"
     ],
     "win": {
-      "icon": "assets/northstar.ico",
+      "icon": "assets/tayefs.ico",
       "target": [
         {
           "target": "nsis",
@@ -46,14 +46,14 @@
           ]
         }
       ],
-      "artifactName": "Northstar-Setup-${version}.${ext}"
+      "artifactName": "TAYEFS-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Northstar"
+      "shortcutName": "TAYEF'S"
     }
   }
 }

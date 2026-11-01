@@ -1,0 +1,11 @@
+{
+  "id": "gym",
+  "name": "Gym",
+  "version": "1.0.0",
+  "releaseTag": "gym-v1.0.0",
+  "minAppVersion": "0.2.0",
+  "entryPoint": "www/app.js#gymView",
+  "location": "Health & fitness",
+  "description": "A flexible, editable 30-day workout calendar with recovery days and exercise tracking.",
+  "data": "Stored locally on the device; preserved when this plugin is removed."
+}
