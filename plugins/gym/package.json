@@ -1,0 +1,50 @@
+{
+  "format": "tayefs-plugin",
+  "schemaVersion": 1,
+  "manifest": {
+    "id": "gym",
+    "name": "Gym",
+    "version": "1.1.0",
+    "releaseTag": "gym-v1.1.0",
+    "minAppVersion": "0.3.0",
+    "adapter": "gym"
+  },
+  "module": {
+    "type": "gym",
+    "workoutTemplates": [
+      {
+        "title": "Full body A",
+        "focus": "Easy, controlled full-body session",
+        "exercises": [
+          ["Bodyweight squat", 2, "8–12"],
+          ["Incline push-up", 2, "8–12"],
+          ["Resistance-band row", 2, "8–12"],
+          ["Glute bridge", 2, "10–12"],
+          ["Front plank", 2, "20–30 sec"]
+        ]
+      },
+      {
+        "title": "Full body B",
+        "focus": "Smooth repetitions, stop before form slips",
+        "exercises": [
+          ["Supported split squat", 2, "8 each side"],
+          ["Light dumbbell floor press", 2, "8–12"],
+          ["Resistance-band row", 2, "8–12"],
+          ["Hip hinge drill", 2, "8–10"],
+          ["Dead bug", 2, "8 each side"]
+        ]
+      },
+      {
+        "title": "Full body C",
+        "focus": "Choose light resistance and steady form",
+        "exercises": [
+          ["Low step-up", 2, "8 each side"],
+          ["Knee or incline push-up", 2, "8–12"],
+          ["Band pull-apart", 2, "10–12"],
+          ["Calf raise", 2, "10–12"],
+          ["Bird dog", 2, "8 each side"]
+        ]
+      }
+    ]
+  }
+}

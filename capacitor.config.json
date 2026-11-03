@@ -2,6 +2,13 @@
   "appId": "com.northstar.lifeos",
   "appName": "TAYEF'S",
   "webDir": "www",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "LIGHT",
+      "backgroundColor": "#10120f"
+    }
+  },
   "server": {
     "androidScheme": "https"
   }

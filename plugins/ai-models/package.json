@@ -1,0 +1,17 @@
+{
+  "format": "tayefs-plugin",
+  "schemaVersion": 1,
+  "manifest": {
+    "id": "ai-models",
+    "name": "AI Models",
+    "version": "1.1.0",
+    "releaseTag": "ai-models-v1.1.0",
+    "minAppVersion": "0.3.0",
+    "adapter": "ai-models"
+  },
+  "module": {
+    "type": "ai-models",
+    "protocol": "openai-chat-completions",
+    "description": "Connect compatible AI providers by adding a display name, HTTPS endpoint, model ID, and session-only API key. AI requests are made only when you submit them."
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "format": "tayefs-plugin",
+  "schemaVersion": 1,
+  "manifest": {
+    "id": "content-studio",
+    "name": "Content Studio",
+    "version": "1.0.0",
+    "releaseTag": "content-studio-v1.0.0",
+    "minAppVersion": "0.3.0",
+    "adapter": "content-studio"
+  },
+  "module": {
+    "type": "content-studio",
+    "platforms": ["YouTube", "YouTube Shorts", "Instagram", "TikTok", "Facebook", "X / Threads", "Blog"],
+    "formats": ["Short video", "Long video", "Carousel", "Thread", "Post", "Article"],
+    "pillars": ["Science made simple", "Technology & AI", "Build in public", "Study & learning", "Personal growth", "Other"],
+    "stages": ["Idea", "Research", "Script", "Record", "Edit", "Scheduled", "Published"],
+    "workflow": ["Capture", "Research", "Package", "Script", "Produce", "Publish", "Review"],
+    "checklist": ["Fact-check claims and sources", "Confirm hook and viewer payoff", "Prepare recording or visual assets", "Check captions, spelling, and audio", "Review platform format and rights", "Choose caption, title, and publish time"],
+    "templates": [
+      {
+        "id": "vertical-explainer",
+        "name": "Short vertical explainer",
+        "titleOptions": "1.\n2.\n3.",
+        "hook": "Start with a surprising question, result, or visual.",
+        "outline": "0–2 sec: hook\n2–8 sec: context\n8–25 sec: explain one idea\n25–35 sec: example and payoff\nEnd: one clear next step",
+        "script": "Hook:\n\nExplain the idea:\n\nExample:\n\nPayoff / CTA:",
+        "shotList": "Talking-head hook\nScreen recording or simple diagram\nCutaway / example\nClosing shot",
+        "thumbnail": "One clear subject, readable contrast, 2–4 words maximum.",
+        "caption": "One-sentence context, useful takeaway, and one natural CTA."
+      },
+      {
+        "id": "long-form-video",
+        "name": "Long-form video",
+        "titleOptions": "1.\n2.\n3.",
+        "hook": "Promise a specific outcome and show why it matters.",
+        "outline": "Cold open\nContext and stakes\nMain point 1 + example\nMain point 2 + demonstration\nMain point 3 + takeaway\nConclusion and CTA",
+        "script": "Opening:\n\nSection 1:\n\nSection 2:\n\nSection 3:\n\nWrap-up:",
+        "shotList": "A-roll sections\nScreen recordings / demonstrations\nB-roll and close-ups\nChapter markers\nAudio and lighting check",
+        "thumbnail": "One focal image, a clear emotion or object, strong contrast, no clutter.",
+        "caption": "Summary, chapters, sources, and a single useful CTA."
+      },
+      {
+        "id": "carousel-thread",
+        "name": "Carousel or thread",
+        "titleOptions": "1.\n2.\n3.",
+        "hook": "Slide / post 1: a clear promise or useful tension.",
+        "outline": "1. Hook\n2. Problem / context\n3–6. One idea per card\n7. Example or evidence\n8. Summary and CTA",
+        "script": "Card / post 1:\n\nCard / post 2:\n\nCard / post 3:\n\nFinal card / CTA:",
+        "shotList": "Cover visual\nConsistent type and spacing\nOne diagram or example\nReadable mobile preview",
+        "thumbnail": "A legible cover with one visual idea and a short headline.",
+        "caption": "Add context that complements the cards; include source links when useful."
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "tayefs-personal-os",
   "productName": "TAYEF'S",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Your personal workspace for health, study, projects, and ideas.",
   "author": "Tayef",
   "private": true,
@@ -55,5 +55,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "TAYEF'S"
     }
+  },
+  "dependencies": {
+    "@capacitor/status-bar": "^7.0.0"
   }
 }

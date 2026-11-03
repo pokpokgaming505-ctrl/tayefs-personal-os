@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "plugins": [
+    {
+      "id": "gym",
+      "version": "1.1.0",
+      "releaseTag": "gym-v1.1.0",
+      "sha256": "c3d3235cb5ec9bf57cf6f01e871d3d792438c1dd083a5794a29feecbf6138cd0"
+    },
+    {
+      "id": "ai-models",
+      "version": "1.1.0",
+      "releaseTag": "ai-models-v1.1.0",
+      "sha256": "38ed038eb04bdeae3f63020cf2db22db2bc32773cd02199659a7c06f92ff0e98"
+    },
+    {
+      "id": "content-studio",
+      "version": "1.0.0",
+      "releaseTag": "content-studio-v1.0.0",
+      "sha256": "1683cf637e08db4fc240c3cfb88fbab978f23ea95a2a3688c55e95f2ca1b9fc0"
+    }
+  ]
+}

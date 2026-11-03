@@ -1,0 +1,11 @@
+{
+  "id": "content-studio",
+  "name": "Content Studio",
+  "version": "1.0.0",
+  "releaseTag": "content-studio-v1.0.0",
+  "minAppVersion": "0.3.0",
+  "adapter": "content-studio",
+  "package": "package.json",
+  "location": "Build & create",
+  "description": "A creator planning desk for ideas, research, titles, scripts, production checklists, and publishing."
+}

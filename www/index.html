@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="TAYEF'S personal space for health, study, projects, and ideas." />
   <meta name="theme-color" content="#10120f" />
   <title>TAYEF'S | Personal OS</title>
@@ -24,6 +24,7 @@
         <button class="nav-link hidden" data-view="gym" data-plugin-nav="gym"><span class="nav-icon">◈</span>Gym</button>
         <button class="nav-link" data-view="study"><span class="nav-icon">▤</span>Study room</button>
         <button class="nav-link" data-view="build"><span class="nav-icon">⌘</span>Build & create</button>
+        <button class="nav-link hidden" data-view="content" data-plugin-nav="content-studio"><span class="nav-icon">▶</span>Content Studio</button>
         <button class="nav-link" data-view="library"><span class="nav-icon">▧</span>Ideas & library</button>
         <button class="nav-link" data-view="review"><span class="nav-icon">↗</span>Weekly review</button>
         <button class="nav-link hidden" data-view="ai" data-plugin-nav="ai-models"><span class="nav-icon">✦</span>AI</button>
@@ -56,7 +57,7 @@
   </div>
 
   <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile navigation">
-    <button class="active" data-view="dashboard"><span>◫</span>Home</button><button data-view="health"><span>♡</span>Health</button><button class="hidden" data-view="gym" data-plugin-nav="gym"><span>◈</span>Gym</button><button data-view="study"><span>▤</span>Study</button><button data-view="plugins"><span>⊞</span>Plugins</button>
+    <button class="active" data-view="dashboard"><span>◫</span>Home</button><button data-view="health"><span>♡</span>Health</button><button class="hidden" data-view="gym" data-plugin-nav="gym"><span>◈</span>Gym</button><button class="hidden" data-view="content" data-plugin-nav="content-studio"><span>▶</span>Create</button><button data-view="study"><span>▤</span>Study</button><button data-view="plugins"><span>⊞</span>Plugins</button>
   </nav>
   <dialog id="app-dialog" class="app-dialog"><form method="dialog"><button class="dialog-close" aria-label="Close dialog">×</button></form><div id="dialog-content"></div></dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>

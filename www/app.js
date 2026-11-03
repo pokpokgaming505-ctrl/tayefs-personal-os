@@ -1,10 +1,22 @@
 const STORAGE_KEY = "northstar-life-os-v1";
-const views = { dashboard: "Dashboard", health: "Health & fitness", gym: "Gym", study: "Study room", build: "Build & create", library: "Ideas & library", review: "Weekly review", ai: "AI", plugins: "Plugins" };
+const APP_VERSION = "0.3.0";
+const REPOSITORY_RAW = "https://raw.githubusercontent.com/pokpokgaming505-ctrl/tayefs-personal-os";
+const PLUGIN_PACKAGE_MAX_BYTES = 512 * 1024;
+const views = { dashboard: "Dashboard", health: "Health & fitness", gym: "Gym", study: "Study room", build: "Build & create", content: "Content Studio", library: "Ideas & library", review: "Weekly review", ai: "AI", plugins: "Plugins" };
 const themeClasses = ["theme-focus", "theme-simple", "theme-creator", "theme-bright"];
-const pluginCatalog = [
-  { id: "gym", name: "Gym", version: "1.0.0", icon: "◈", description: "A flexible 30-day workout calendar with editable sessions, sets, reps, and completion checkboxes.", location: "Health & fitness" },
-  { id: "ai-models", name: "AI Models", version: "1.0.0", icon: "✦", description: "Connect your own OpenAI-compatible models, choose what to connect, and keep API keys in memory for this session only.", location: "AI Models" }
+const pluginIcons = { gym: "◈", "ai-models": "✦", "content-studio": "▶" };
+const pluginAdapters = new Set(["gym", "ai-models", "content-studio"]);
+const bundledPluginCatalog = [
+  { id: "gym", name: "Gym", version: "1.1.0", releaseTag: "gym-v1.1.0", sha256: "c3d3235cb5ec9bf57cf6f01e871d3d792438c1dd083a5794a29feecbf6138cd0", icon: "◈", description: "An editable monthly workout calendar with recovery days, sets/reps, and completion tracking.", location: "Health & fitness" },
+  { id: "ai-models", name: "AI Models", version: "1.1.0", releaseTag: "ai-models-v1.1.0", sha256: "38ed038eb04bdeae3f63020cf2db22db2bc32773cd02199659a7c06f92ff0e98", icon: "✦", description: "Add your own compatible AI models; connect them to supported plugins only when you choose.", location: "AI Models" },
+  { id: "content-studio", name: "Content Studio", version: "1.0.0", releaseTag: "content-studio-v1.0.0", sha256: "1683cf637e08db4fc240c3cfb88fbab978f23ea95a2a3688c55e95f2ca1b9fc0", icon: "▶", description: "Collect ideas, plan scripts and visuals, track production, and schedule content across platforms.", location: "Build & create" }
 ];
+let pluginCatalog = bundledPluginCatalog.map(item => ({ ...item, packageUrl: `${REPOSITORY_RAW}/${item.releaseTag}/plugins/${item.id}/package.json` }));
+let pluginCatalogRefreshPromise = null;
+let downloadingPluginId = "";
+let pluginDownloadProgress = 0;
+let contentIntegrationEditorOpen = false;
+let contentDraftingId = "";
 const sessionApiKeys = new Map();
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -12,8 +24,8 @@ const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Mat
 const localDateKey = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
 const nowDateKey = localDateKey();
 const starterData = () => ({
-  version: 2,
-  settings: { theme: "focus", textSize: "normal", fontStyle: "sans", installedPlugins: [], aiModels: [], gymAiModel: "" },
+  version: 3,
+  settings: { theme: "focus", textSize: "normal", fontStyle: "sans", installedPlugins: [], installedPluginVersions: {}, pluginPackages: {}, aiModels: [], gymAiModel: "", contentAiModel: "" },
   tasks: [
     { id: uid(), title: "Finish one science lesson", area: "STUDY", date: nowDateKey, done: false, starter: true },
     { id: uid(), title: "Move your body", area: "HEALTH", date: nowDateKey, done: false, starter: true },
@@ -25,18 +37,28 @@ const starterData = () => ({
     { id: uid(), title: "Atomic Habits", author: "James Clear", status: "Queue", starter: true },
     { id: uid(), title: "The 48 Laws of Power", author: "Robert Greene", status: "Queue", starter: true }
   ],
-  notes: [], reviews: {}, gym: { months: {} }
+  notes: [], reviews: {}, gym: { months: {} }, content: { items: [] }
 });
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && [1, 2].includes(saved.version)) {
+    if (saved && [1, 2, 3].includes(saved.version)) {
       const defaults = starterData();
-      const migrated = { ...defaults, ...saved, version: 2 };
+      const migrated = { ...defaults, ...saved, version: 3 };
       migrated.settings = { ...defaults.settings, ...saved.settings };
-      migrated.settings.installedPlugins = Array.isArray(migrated.settings.installedPlugins) ? migrated.settings.installedPlugins : [];
+      const validPackages = {};
+      if (saved.version >= 3 && saved.settings?.pluginPackages && typeof saved.settings.pluginPackages === "object") {
+        for (const [id, pluginPackage] of Object.entries(saved.settings.pluginPackages)) {
+          try { validatePluginPackage(pluginPackage, id); validPackages[id] = pluginPackage; } catch { /* Ignore unsupported or malformed cached packages. */ }
+        }
+      }
+      migrated.settings.pluginPackages = validPackages;
+      migrated.settings.installedPluginVersions = saved.version >= 3 && saved.settings?.installedPluginVersions && typeof saved.settings.installedPluginVersions === "object" ? saved.settings.installedPluginVersions : {};
+      migrated.settings.installedPlugins = saved.version >= 3 && Array.isArray(saved.settings?.installedPlugins)
+        ? saved.settings.installedPlugins.filter(id => validPackages[id] && migrated.settings.installedPluginVersions[id] === validPackages[id].manifest.version) : [];
       migrated.settings.aiModels = Array.isArray(migrated.settings.aiModels) ? migrated.settings.aiModels : [];
       migrated.gym = { ...defaults.gym, ...saved.gym, months: saved.gym?.months || {} };
+      migrated.content = { ...defaults.content, ...saved.content, items: Array.isArray(saved.content?.items) ? saved.content.items : [] };
       return migrated;
     }
   } catch (error) { console.warn("Could not read saved TAYEF'S data.", error); }
@@ -60,7 +82,26 @@ function fmtDate(key) {
   const [y,m,d] = key.split("-").map(Number);
   return new Date(y,m-1,d).toLocaleDateString("en", { month:"short", day:"numeric" });
 }
-function isPluginInstalled(id) { return state.settings.installedPlugins.includes(id); }
+function validatePluginPackage(pluginPackage, expectedId = "") {
+  const manifest = pluginPackage?.manifest;
+  const module = pluginPackage?.module;
+  if (pluginPackage?.format !== "tayefs-plugin" || pluginPackage?.schemaVersion !== 1) throw new Error("This is not a supported TAYEF'S plugin package.");
+  if (!manifest || !pluginAdapters.has(manifest.id) || (expectedId && manifest.id !== expectedId) || typeof manifest.name !== "string" || manifest.name.length > 64) throw new Error("This plugin type is not supported by this app version.");
+  if (!/^\d+\.\d+\.\d+$/.test(String(manifest.version || "")) || !/^\d+\.\d+\.\d+$/.test(String(manifest.minAppVersion || "0.0.0")) || !pluginAdapters.has(manifest.adapter) || module?.type !== manifest.adapter) throw new Error("The plugin manifest or adapter is invalid.");
+  if (compareVersions(String(manifest.minAppVersion || "0.0.0"), APP_VERSION) > 0) throw new Error(`This plugin needs app version ${manifest.minAppVersion} or newer.`);
+  if (manifest.id === "gym" && (!Array.isArray(module.workoutTemplates) || !module.workoutTemplates.length || module.workoutTemplates.length > 8 || module.workoutTemplates.some(template => typeof template.title !== "string" || typeof template.focus !== "string" || !Array.isArray(template.exercises) || !template.exercises.length || template.exercises.length > 15 || template.exercises.some(exercise => !Array.isArray(exercise) || exercise.length !== 3 || typeof exercise[0] !== "string" || !Number.isFinite(Number(exercise[1])) || typeof exercise[2] !== "string")))) throw new Error("The Gym package does not contain valid workout templates.");
+  if (manifest.id === "ai-models" && module.protocol !== "openai-chat-completions") throw new Error("The AI Models package uses an unsupported protocol.");
+  if (manifest.id === "content-studio" && (!Array.isArray(module.platforms) || !module.platforms.length || module.platforms.length > 12 || !Array.isArray(module.formats) || !module.formats.length || module.formats.length > 12 || !Array.isArray(module.stages) || !module.stages.length || module.stages.length > 12 || !Array.isArray(module.pillars) || !module.pillars.length || module.pillars.length > 12 || !Array.isArray(module.templates) || !module.templates.length || module.templates.length > 8 || !Array.isArray(module.checklist) || module.checklist.length > 24 || !Array.isArray(module.workflow) || module.workflow.length > 12 || [...module.platforms, ...module.formats, ...module.stages, ...module.pillars, ...module.checklist, ...module.workflow].some(value => typeof value !== "string" || value.length > 100) || module.templates.some(template => !template || typeof template.id !== "string" || typeof template.name !== "string"))) throw new Error("The Content Studio package is missing valid planning data.");
+  return pluginPackage;
+}
+function compareVersions(a, b) {
+  const left = a.split(".").map(Number), right = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if ((left[i] || 0) !== (right[i] || 0)) return (left[i] || 0) > (right[i] || 0) ? 1 : -1;
+  return 0;
+}
+function isPluginInstalled(id) { const pluginPackage = state.settings.pluginPackages[id]; return state.settings.installedPlugins.includes(id) && !!pluginPackage && state.settings.installedPluginVersions[id] === pluginPackage.manifest.version; }
+function cachedPlugin(id) { return state.settings.pluginPackages[id] || null; }
+function activePluginPackage(id) { return isPluginInstalled(id) ? cachedPlugin(id) : null; }
 function monthDateKeys(monthKey) {
   const [year, month] = monthKey.split("-").map(Number);
   const count = new Date(year, month, 0).getDate();
@@ -73,10 +114,11 @@ const workoutTemplates = [
 ];
 function createGymMonth(monthKey) {
   let sessionNumber = 0;
+  const templates = activePluginPackage("gym")?.module.workoutTemplates || workoutTemplates;
   return Object.fromEntries(monthDateKeys(monthKey).map(key => {
     const weekday = new Date(`${key}T12:00:00`).getDay();
     const trainingDay = [1, 3, 5].includes(weekday);
-    const template = workoutTemplates[sessionNumber % workoutTemplates.length];
+    const template = templates[sessionNumber % templates.length];
     const exercises = trainingDay ? template.exercises.map((exercise, i) => ({ id: `${key}-exercise-${i + 1}`, name: exercise[0], sets: exercise[1], reps: exercise[2] })) : [];
     if (trainingDay) sessionNumber++;
     return [key, { date: key, kind: trainingDay ? "workout" : "recovery", title: trainingDay ? template.title : "Rest & recovery", focus: trainingDay ? template.focus : "Optional easy walk or gentle mobility; rest is a valid choice.", notes: "", exercises, completed: {} }];
@@ -146,7 +188,7 @@ function healthView() {
   const todayMove = totalMinutes(todayEntries(movement));
   const latestSleep = todayEntries(sleep)[0];
   return `${pageHeading("CARE FOR YOUR ENERGY","Health & fitness","শরীরের যত্ন নাও—নিজের জন্য অর্থবহ জিনিসগুলোই নথিবদ্ধ করো।",`${todayMove} MIN MOVEMENT TODAY`)}
-  <section class="card plugin-entry-card">${cardHead("Gym planner","এক মাসের editable workout plan, আলাদা Gym plugin-এ থাকে।",`<span class="badge">${isPluginInstalled("gym") ? "INSTALLED · v1.0.0" : "OPTIONAL PLUGIN"}</span>`)}<p class="card-sub">${isPluginInstalled("gym") ? "দিন বেছে workout দেখো, sets/reps বদলাও, আর exercise complete হলে checkbox দাও।" : "Plugins থেকে Gym v1.0.0 ইনস্টল করলে এখানেই Gym planner যুক্ত হবে।"}</p><div class="button-row" style="margin-top:12px">${isPluginInstalled("gym") ? `<button class="button small" data-view-link="gym">Open Gym planner ↗</button>` : `<button class="button small" data-action="install-plugin" data-plugin="gym">Install Gym plugin</button>`}</div></section>
+  <section class="card plugin-entry-card">${cardHead("Gym planner","এক মাসের editable workout plan, আলাদা Gym plugin-এ থাকে।",`<span class="badge">${isPluginInstalled("gym") ? `INSTALLED · v${esc(cachedPlugin("gym").manifest.version)}` : "OPTIONAL PLUGIN"}</span>`)}<p class="card-sub">${isPluginInstalled("gym") ? "দিন বেছে workout দেখো, sets/reps বদলাও, আর exercise complete হলে checkbox দাও।" : "Plugins খুলে versioned Gym package download করো; download শেষ হলে Add চাপলে planner চালু হবে।"}</p><div class="button-row" style="margin-top:12px">${isPluginInstalled("gym") ? `<button class="button small" data-view-link="gym">Open Gym planner ↗</button>` : `<button class="button small" data-view-link="plugins">Open Plugins to download Gym ↗</button>`}</div></section>
   <div class="section-grid"><section class="form-card"><h2>Log movement</h2><p>Walking, sport, stretching—তুমি যা করেছো সেটাই লেখো। কোনো লক্ষ্য বাধ্যতামূলক নয়।</p><form id="movement-form"><div class="field-grid"><div class="field"><label for="movement-type">Activity</label><select id="movement-type" name="activity"><option>Walk</option><option>Sport</option><option>Stretching</option><option>Other</option></select></div><div class="field"><label for="movement-minutes">Minutes</label><input id="movement-minutes" name="minutes" type="number" min="1" max="600" placeholder="30" required></div></div><div class="field"><label for="movement-note">Note (optional)</label><input id="movement-note" name="note" maxlength="120" placeholder="How did it feel?"></div><button class="button" type="submit">Save movement</button></form></section>
   <section class="form-card"><h2>Log rest</h2><p>ঘুম বা বিশ্রামের একটি সহজ নোট রাখো। এটি ব্যক্তিগত; ডেটা শুধু এই ব্রাউজারে থাকে।</p><form id="sleep-form"><div class="field"><label for="sleep-hours">Last night's sleep (hours)</label><input id="sleep-hours" name="hours" type="number" min="0" max="24" step="0.5" placeholder="8" required></div><div class="field"><label for="sleep-note">Optional note</label><input id="sleep-note" name="note" maxlength="120" placeholder="Rested, busy night, etc."></div><button class="button" type="submit">Save rest note</button>${latestSleep?`<div class="field-help" style="margin-top:9px">Today: ${latestSleep.hours} hours logged.</div>`:""}</form></section></div>
   <section class="card" style="margin-top:13px">${cardHead("Movement log","Your recent activity, without a score.",`<span class="badge">${movement.length} ENTRIES</span>`)}${movement.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>DATE</th><th>ACTIVITY</th><th>TIME</th><th>NOTE</th></tr></thead><tbody>${movement.slice(0,12).map(x=>`<tr><td>${fmtDate(x.date)}</td><td><strong>${esc(x.activity)}</strong></td><td>${x.minutes} min</td><td>${esc(x.note||"—")}</td></tr>`).join("")}</tbody></table></div>`:emptyState("Your movement log is empty","When you want, add a walk, workout, or any movement that felt good.")}</section>
@@ -154,12 +196,48 @@ function healthView() {
 }
 function pluginsView() {
   const installed = state.settings.installedPlugins;
-  return `${pageHeading("MAKE YOUR SPACE YOURS", "Plugins", "যখন দরকার, তখনই ছোট feature install করো। প্রতিটি plugin-এর নিজস্ব version ও feature boundary আছে.", `${installed.length} INSTALLED`)}
+  const activeCount = pluginCatalog.filter(plugin => isPluginInstalled(plugin.id)).length;
+  return `${pageHeading("MAKE YOUR SPACE YOURS", "Plugins", "GitHub থেকে package নামাও; তারপর আলাদা করে Add করে feature চালু করো।", `${activeCount} ADDED`)}
+  <div class="plugin-toolbar"><button class="button secondary small" data-action="refresh-plugin-catalog" ${downloadingPluginId ? "disabled" : ""}>↻ Check GitHub for updates</button><button class="button small" data-action="import-plugin-file" ${downloadingPluginId ? "disabled" : ""}>↑ Import downloaded plugin .json</button><input class="hidden" id="plugin-import-file" type="file" accept="application/json,.json" /></div>
   <div class="plugin-grid">${pluginCatalog.map(plugin => {
-    const active = installed.includes(plugin.id);
-    return `<article class="card plugin-card"><div class="plugin-icon">${plugin.icon}</div><div class="plugin-main"><div class="plugin-heading"><h2>${esc(plugin.name)}</h2><span class="badge accent">v${esc(plugin.version)}</span>${active ? `<span class="badge">INSTALLED</span>` : ""}</div><p>${esc(plugin.description)}</p><div class="item-meta"><span class="badge">${esc(plugin.location)}</span><span class="badge">Built-in · stays on this device</span></div></div><div class="plugin-actions">${active ? `<button class="button secondary small" data-action="remove-plugin" data-plugin="${esc(plugin.id)}">Remove</button>` : `<button class="button small" data-action="install-plugin" data-plugin="${esc(plugin.id)}">Install plugin</button>`}</div></article>`;
+    const cached = cachedPlugin(plugin.id);
+    const cachedVersion = cached?.manifest?.version || "";
+    const active = isPluginInstalled(plugin.id);
+    const hasLatestDownloaded = cachedVersion === plugin.version;
+    const hasUpdate = !!cached && compareVersions(plugin.version, cachedVersion) > 0;
+    const busy = downloadingPluginId === plugin.id;
+    const status = active ? `ADDED · v${cachedVersion}` : hasLatestDownloaded ? `DOWNLOADED · v${cachedVersion}` : cached ? `CACHED · v${cachedVersion}` : "HOSTED ON GITHUB";
+    const action = busy
+      ? `<button class="button secondary small download-progress" disabled><span class="spinner" aria-hidden="true"></span>${pluginDownloadProgress ? `${pluginDownloadProgress}%` : "Downloading…"}</button>`
+      : active
+        ? `<button class="button secondary small" data-action="remove-plugin" data-plugin="${esc(plugin.id)}">Remove</button>${hasUpdate ? `<button class="button small" data-action="download-plugin" data-plugin="${esc(plugin.id)}">Download v${esc(plugin.version)}</button>` : ""}`
+        : hasLatestDownloaded
+          ? `<button class="button small" data-action="install-plugin" data-plugin="${esc(plugin.id)}">Add v${esc(cachedVersion)} to app</button>${hasUpdate ? `<button class="button secondary small" data-action="download-plugin" data-plugin="${esc(plugin.id)}">Get latest v${esc(plugin.version)}</button>` : ""}`
+          : `<button class="button small" data-action="download-plugin" data-plugin="${esc(plugin.id)}">${cached ? `Download update v${esc(plugin.version)}` : `Install · download v${esc(plugin.version)}`}</button>`;
+    return `<article class="card plugin-card"><div class="plugin-icon">${esc(plugin.icon || pluginIcons[plugin.id] || "⊞")}</div><div class="plugin-main"><div class="plugin-heading"><h2>${esc(plugin.name)}</h2><span class="badge accent">Latest v${esc(plugin.version)}</span><span class="badge">${esc(status)}</span></div><p>${esc(plugin.description)}</p><div class="item-meta"><span class="badge">${esc(plugin.location)}</span><a class="badge plugin-release-link" href="https://github.com/pokpokgaming505-ctrl/tayefs-personal-os/releases/tag/${encodeURIComponent(plugin.releaseTag)}" target="_blank" rel="noreferrer">GitHub release ↗</a>${cachedVersion && cachedVersion !== plugin.version ? `<span class="badge">Cached v${esc(cachedVersion)}</span>` : ""}</div>${busy ? `<div class="download-track" role="status" aria-live="polite"><span class="download-bar" style="width:${pluginDownloadProgress || 32}%"></span></div><small class="download-help">GitHub package downloading… ${pluginDownloadProgress ? `${pluginDownloadProgress}%` : "Please wait"}</small>` : !cached ? `<small class="download-help">Install downloads the versioned, data-only package from GitHub. Add activates it after download.</small>` : ""}</div><div class="plugin-actions">${action}</div></article>`;
   }).join("")}</div>
-  <section class="callout plugin-note"><strong>Plugin versions</strong><br>এই catalog-এর plugin code ও manifest একই GitHub project-এর <code>plugins/</code> folder-এ version করা আছে। নতুন app release এলে catalog update হবে; installed plugin চাইলে বন্ধ বা আবার install করতে পারো।</section>`;
+  <section class="callout plugin-note"><strong>Plugin install flow</strong><br>প্রথমে GitHub থেকে versioned JSON package download হয়, এরপর Add চাপলে app-এর supported feature চালু হয়। হাতে download করা release package-ও Import করে Add করতে পারো। Package-এ চালানোর মতো JavaScript থাকে না—বর্তমান app version কেবল তার অনুমোদিত feature adapters চালায়।</section>`;
+}
+function contentStudioView() {
+  const pluginPackage = activePluginPackage("content-studio");
+  if (!pluginPackage) return pluginsView();
+  const module = pluginPackage.module;
+  const items = state.content.items.slice().sort((a, b) => String(a.publishDate || "9999").localeCompare(String(b.publishDate || "9999")));
+  const stages = module.stages;
+  const templates = module.templates;
+  const model = isPluginInstalled("ai-models") ? state.settings.aiModels.find(item => item.id === state.settings.contentAiModel) : null;
+  const stageOptions = value => stages.map(stage => `<option ${stage === value ? "selected" : ""}>${esc(stage)}</option>`).join("");
+  const platformOptions = value => module.platforms.map(platform => `<option ${platform === value ? "selected" : ""}>${esc(platform)}</option>`).join("");
+  const formatOptions = value => module.formats.map(format => `<option ${format === value ? "selected" : ""}>${esc(format)}</option>`).join("");
+  const pillarOptions = value => module.pillars.map(pillar => `<option ${pillar === value ? "selected" : ""}>${esc(pillar)}</option>`).join("");
+  const totalPublished = items.filter(item => item.stage === "Published").length;
+  const inProduction = items.filter(item => ["Research", "Script", "Record", "Edit"].includes(item.stage)).length;
+  return `${pageHeading("IDEA → SCRIPT → PUBLISH", "Content Studio", "আইডিয়া, research, hook, script, visuals, caption আর publishing plan—একটি workflow-তে রাখো।", `v${esc(pluginPackage.manifest.version)} · ${items.length} ITEMS`)}
+  <div class="metric-grid content-metrics"><div class="metric"><div class="metric-label">✦ IDEAS</div><div class="metric-value">${items.filter(item => item.stage === "Idea").length}</div><div class="metric-foot">ready to shape</div></div><div class="metric"><div class="metric-label">◉ IN PRODUCTION</div><div class="metric-value">${inProduction}</div><div class="metric-foot">research through edit</div></div><div class="metric"><div class="metric-label">◷ SCHEDULED</div><div class="metric-value">${items.filter(item => item.stage === "Scheduled").length}</div><div class="metric-foot">planned to publish</div></div><div class="metric"><div class="metric-label">✓ PUBLISHED</div><div class="metric-value">${totalPublished}</div><div class="metric-foot">in your library</div></div></div>
+  <div class="section-grid content-start-grid"><section class="form-card"><h2>Capture a content idea</h2><p>একটি idea লিখে রাখো; পরে brief, hook ও script তৈরি করতে পারো।</p><form id="content-create-form"><div class="field"><label for="content-title">Working title or idea</label><input id="content-title" name="title" maxlength="120" placeholder="e.g. How I automate one boring task" required></div><div class="field-grid"><div class="field"><label for="content-platform">Platform</label><select id="content-platform" name="platform">${platformOptions(module.platforms[0])}</select></div><div class="field"><label for="content-format">Format</label><select id="content-format" name="format">${formatOptions(module.formats[0])}</select></div><div class="field"><label for="content-pillar">Content pillar</label><select id="content-pillar" name="pillar">${pillarOptions(module.pillars[0])}</select></div><div class="field"><label for="content-date">Target publish date</label><input id="content-date" name="publishDate" type="date"></div></div><div class="field"><label for="content-template">Start from a template</label><select id="content-template" name="template">${templates.map(template => `<option value="${esc(template.id)}">${esc(template.name)}</option>`).join("")}</select></div><button class="button" type="submit">+ Add to content pipeline</button></form></section>
+  <section class="card content-integration-card">${cardHead("Optional AI writing partner", model ? `Connected to ${esc(model.name)} · drafts only when you request them.` : "Use a model only if you choose to connect one.", `<button class="text-action" type="button" data-action="toggle-content-ai">${contentIntegrationEditorOpen ? "Close setup" : "Integrate AI with Content Studio"}</button>`)}${contentIntegrationEditorOpen ? (!isPluginInstalled("ai-models") ? `<div class="callout">First download and Add AI Models in Plugins. <button type="button" class="text-action" data-view-link="plugins">Open Plugins ↗</button></div>` : state.settings.aiModels.length ? `<form id="content-ai-link-form" class="inline-form"><label for="content-ai-model">Choose the model for this plugin</label><div class="button-row"><select id="content-ai-model" name="modelId" required><option value="">Select a saved model</option>${state.settings.aiModels.map(item => `<option value="${esc(item.id)}" ${state.settings.contentAiModel === item.id ? "selected" : ""}>${esc(item.name)} · ${esc(item.model)}</option>`).join("")}</select><button class="button small" type="submit">Save connection</button></div></form>` : `<div class="callout">Add a model in AI settings first. <button type="button" class="text-action" data-view-link="ai">Open AI ↗</button></div>`) : `<div class="callout">${model ? `Selected model: <strong>${esc(model.name)}</strong>.` : "AI is optional; planning and script fields work without it."} Before a draft request, the app shows which brief will be shared.</div>`}<div class="creator-prompt-points">${module.workflow.map(item => `<span class="badge">${esc(item)}</span>`).join("")}</div></section></div>
+  <section class="card content-pipeline-card">${cardHead("Your content pipeline", "Open an item to keep its research, script, production checklist, and publishing notes together.", `<span class="badge">${items.length} ITEMS</span>`)}${items.length ? `<div class="content-items">${items.map(item => `<details class="content-item"><summary><span class="content-item-title"><strong>${esc(item.title)}</strong><small>${esc(item.platform)} · ${esc(item.format)} · ${esc(item.pillar)}${item.publishDate ? ` · ${esc(item.publishDate)}` : ""}</small></span><span class="badge accent">${esc(item.stage)}</span></summary><form class="content-edit-form" data-content-editor="${esc(item.id)}"><div class="field-grid"><div class="field"><label>Title</label><input name="title" maxlength="120" value="${esc(item.title)}" required></div><div class="field"><label>Stage</label><select name="stage">${stageOptions(item.stage)}</select></div><div class="field"><label>Platform</label><select name="platform">${platformOptions(item.platform)}</select></div><div class="field"><label>Format</label><select name="format">${formatOptions(item.format)}</select></div><div class="field"><label>Content pillar</label><select name="pillar">${pillarOptions(item.pillar)}</select></div><div class="field"><label>Target publish date</label><input name="publishDate" type="date" value="${esc(item.publishDate || "")}"></div></div><div class="field-grid"><div class="field"><label>Audience</label><input name="audience" maxlength="160" value="${esc(item.audience || "")}" placeholder="Who is this for?"></div><div class="field"><label>Goal / takeaway</label><input name="goal" maxlength="200" value="${esc(item.goal || "")}" placeholder="What should viewers learn or do?"></div></div><div class="field"><label>Research notes and sources</label><textarea name="research" maxlength="3000" placeholder="Facts to verify, links, examples, references…">${esc(item.research || "")}</textarea></div><div class="field"><label>Title options</label><textarea name="titleOptions" maxlength="1500" placeholder="Write several title variations">${esc(item.titleOptions || "")}</textarea></div><div class="field"><label>Opening hook</label><textarea name="hook" maxlength="1000" placeholder="The first line or visual that earns attention">${esc(item.hook || "")}</textarea></div><div class="field"><label>Outline / storyboard</label><textarea name="outline" maxlength="3000" placeholder="Scene 1 → point → example → payoff">${esc(item.outline || "")}</textarea></div><div class="field"><label>Script / voiceover</label><textarea class="content-script" name="script" maxlength="10000" placeholder="Draft the spoken or written content here">${esc(item.script || "")}</textarea></div><div class="field-grid"><div class="field"><label>Shot list / B-roll / assets</label><textarea name="shotList" maxlength="2000" placeholder="Shots, screen recordings, images, music…">${esc(item.shotList || "")}</textarea></div><div class="field"><label>Thumbnail / cover concept</label><textarea name="thumbnail" maxlength="1000" placeholder="Visual, subject, contrast, short text…">${esc(item.thumbnail || "")}</textarea></div></div><div class="field"><label>Caption, description, or CTA</label><textarea name="caption" maxlength="3000" placeholder="Caption, context, call to action…">${esc(item.caption || "")}</textarea></div><div class="field"><label>Hashtags / keywords</label><input name="hashtags" maxlength="500" value="${esc(item.hashtags || "")}" placeholder="#science #technology"></div><div class="content-checklist"><strong>Production checklist</strong><div>${module.checklist.map((step,index) => `<label><input type="checkbox" data-content-check="${esc(item.id)}|${index}" ${item.checklist?.[index] ? "checked" : ""}><span>${esc(step)}</span></label>`).join("")}</div></div><div class="button-row content-actions"><button class="button secondary small" type="submit">Save content brief</button>${model ? (contentDraftingId === item.id ? `<button type="button" class="button small" disabled><span class="spinner" aria-hidden="true"></span>Drafting…</button>` : `<button type="button" class="button small" data-action="generate-content-draft" data-content-id="${esc(item.id)}">Draft with ${esc(model.name)}</button>`) : ""}<button type="button" class="button secondary small" data-action="remove-content" data-content-id="${esc(item.id)}">Remove</button></div>${item.aiDraft ? `<details class="content-ai-result"><summary>AI draft suggestion · review before using</summary><pre>${esc(item.aiDraft)}</pre></details>` : ""}</form></details>`).join("")}</div>` : emptyState("Your creator desk is ready", "Capture a video, post, or thread idea above to start its research and production checklist.")}</section>
+  <div class="callout plugin-note"><strong>Keep your own voice.</strong> Use this as a planning desk: check facts, follow each platform's rules, and review any AI draft before publishing. Content plans stay on this device.</div>`;
 }
 function gymView() {
   const month = ensureGymMonth(gymSelectedMonth);
@@ -231,7 +309,7 @@ function reviewView() {
   <div class="section-grid"><section class="card">${cardHead("Your week in focus","A gentle picture of your study time.")} ${miniWeekBars(weekStudy)}<div class="bar-caption">${minsLabel(totalMinutes(weekStudy))} total · progress can be quiet</div><div class="divider"></div><div class="callout"><strong>Keep the long view.</strong><br>A week is one small chapter. Notice what gave you energy and what made things harder.</div></section>
   <section class="form-card">${cardHead("A few prompts","Save a private note for your future self.")}<form id="review-form"><div class="field"><label for="review-well">What went well?</label><textarea id="review-well" name="wentWell" maxlength="500" placeholder="A small win, a good question, a moment you showed up…">${esc(review.wentWell)}</textarea></div><div class="field"><label for="review-learned">What did you learn?</label><textarea id="review-learned" name="learned" maxlength="500" placeholder="About a subject, a project, or yourself…">${esc(review.learned)}</textarea></div><div class="field"><label for="review-next">What is one next step?</label><textarea id="review-next" name="next" maxlength="300" placeholder="Keep it small and specific.">${esc(review.next)}</textarea></div><button class="button" type="submit">Save weekly reflection</button></form></section></div>`;
 }
-const renderers = { dashboard:dashboardView, health:healthView, gym:gymView, study:studyView, build:buildView, library:libraryView, review:reviewView, ai:aiView, plugins:pluginsView };
+const renderers = { dashboard:dashboardView, health:healthView, gym:gymView, study:studyView, build:buildView, content:contentStudioView, library:libraryView, review:reviewView, ai:aiView, plugins:pluginsView };
 function render({ focus = false } = {}) {
   $("#page-content").innerHTML = (renderers[activeView] || dashboardView)();
   $("#page-crumb").textContent = views[activeView] || views.dashboard;
@@ -244,9 +322,11 @@ function navigate(view) {
   if (!renderers[view]) return;
   if (view === "gym" && !isPluginInstalled("gym")) view = "plugins";
   if (view === "ai" && !isPluginInstalled("ai-models")) view = "plugins";
+  if (view === "content" && !isPluginInstalled("content-studio")) view = "plugins";
   activeView = view;
   render({ focus:true });
   history.replaceState(null,"",`#${view}`);
+  if (view === "plugins") refreshPluginCatalog();
 }
 function toast(message, error = false) {
   const region = $("#toast-region");
@@ -324,22 +404,125 @@ function applyTextPreferences() {
   $("#text-size-select").value = size;
   $("#font-style-select").value = style;
 }
+async function refreshPluginCatalog() {
+  if (pluginCatalogRefreshPromise) return pluginCatalogRefreshPromise;
+  pluginCatalogRefreshPromise = (async () => {
+    try {
+      const response = await fetch(`${REPOSITORY_RAW}/main/plugins/catalog.json`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+      const payload = await response.json();
+      if (payload.schemaVersion !== 1 || !Array.isArray(payload.plugins)) throw new Error("Unsupported catalog format");
+      const remote = new Map();
+      for (const item of payload.plugins.slice(0, 20)) {
+        const base = bundledPluginCatalog.find(candidate => candidate.id === item.id);
+        if (!base || !/^\d+\.\d+\.\d+$/.test(String(item.version || "")) || item.releaseTag !== `${item.id}-v${item.version}` || !/^[a-f0-9]{64}$/i.test(String(item.sha256 || ""))) continue;
+        remote.set(item.id, { ...base, version: item.version, releaseTag: item.releaseTag, sha256: item.sha256.toLowerCase(), packageUrl: `${REPOSITORY_RAW}/${item.releaseTag}/plugins/${item.id}/package.json` });
+      }
+      if (remote.size) {
+        pluginCatalog = bundledPluginCatalog.map(base => remote.get(base.id) || { ...base, packageUrl: `${REPOSITORY_RAW}/${base.releaseTag}/plugins/${base.id}/package.json` });
+        if (activeView === "plugins") render();
+      }
+    } catch (error) {
+      console.info("Using the bundled plugin catalog while offline.", error);
+    } finally {
+      pluginCatalogRefreshPromise = null;
+    }
+  })();
+  return pluginCatalogRefreshPromise;
+}
+async function downloadPlugin(id) {
+  const plugin = pluginCatalog.find(item => item.id === id);
+  if (!plugin || downloadingPluginId) return;
+  downloadingPluginId = id;
+  pluginDownloadProgress = 0;
+  if (activeView === "plugins") render();
+  let lastPaint = 0;
+  try {
+    const response = await fetch(plugin.packageUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error(`GitHub package download failed (${response.status}).`);
+    const declaredLength = Number(response.headers.get("content-length")) || 0;
+    if (declaredLength > PLUGIN_PACKAGE_MAX_BYTES) throw new Error("This plugin package is larger than the allowed 512 KB.");
+    let bytes;
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      const chunks = [];
+      let length = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        length += value.byteLength;
+        if (length > PLUGIN_PACKAGE_MAX_BYTES) { await reader.cancel(); throw new Error("This plugin package is larger than the allowed 512 KB."); }
+        chunks.push(value);
+        pluginDownloadProgress = declaredLength ? Math.min(99, Math.floor(length / declaredLength * 100)) : 0;
+        const now = Date.now();
+        if (now - lastPaint > 180 && activeView === "plugins") { render(); lastPaint = now; }
+      }
+      bytes = new Uint8Array(length);
+      let offset = 0;
+      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    } else {
+      bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > PLUGIN_PACKAGE_MAX_BYTES) throw new Error("This plugin package is larger than the allowed 512 KB.");
+    }
+    const digestBuffer = await crypto.subtle.digest("SHA-256", bytes);
+    const digest = [...new Uint8Array(digestBuffer)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+    if (!/^[a-f0-9]{64}$/i.test(plugin.sha256) || digest !== plugin.sha256.toLowerCase()) throw new Error("The downloaded file did not match the GitHub catalog checksum.");
+    const pluginPackage = JSON.parse(new TextDecoder().decode(bytes));
+    validatePluginPackage(pluginPackage, id);
+    if (pluginPackage.manifest.version !== plugin.version || pluginPackage.manifest.releaseTag !== plugin.releaseTag) throw new Error("The package version does not match its GitHub release.");
+    state.settings.pluginPackages[id] = pluginPackage;
+    save();
+    pluginDownloadProgress = 100;
+    toast(`${plugin.name} v${plugin.version} downloaded. Tap Add to activate it.`);
+  } catch (error) {
+    toast(error.message || "Could not download this plugin. Check your connection and try again.", true);
+  } finally {
+    downloadingPluginId = "";
+    setTimeout(() => { pluginDownloadProgress = 0; if (activeView === "plugins") render(); }, 350);
+    if (activeView === "plugins") render();
+  }
+}
+function importPluginFile(file) {
+  if (!file) return;
+  if (file.size > PLUGIN_PACKAGE_MAX_BYTES) { toast("Plugin packages are limited to 512 KB.", true); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const pluginPackage = validatePluginPackage(JSON.parse(String(reader.result)));
+      const id = pluginPackage.manifest.id;
+      if (!pluginCatalog.some(item => item.id === id)) throw new Error("This plugin is not listed in this app's supported catalog.");
+      state.settings.pluginPackages[id] = pluginPackage;
+      save();
+      render();
+      toast(`${pluginPackage.manifest.name} v${pluginPackage.manifest.version} imported. Tap Add to activate it.`);
+    } catch (error) { toast(error.message || "That plugin package could not be read.", true); }
+  };
+  reader.onerror = () => toast("Could not read that plugin package file.", true);
+  reader.readAsText(file);
+}
 function installPlugin(id) {
   const plugin = pluginCatalog.find(item => item.id === id);
-  if (!plugin) return;
-  if (!isPluginInstalled(id)) state.settings.installedPlugins.push(id);
+  const pluginPackage = cachedPlugin(id);
+  if (!plugin) { toast("This plugin is not in the current catalog.", true); return; }
+  if (!pluginPackage) { navigate("plugins"); toast(`Download ${plugin.name} first. Add becomes available when the download finishes.`); downloadPlugin(id); return; }
+  try { validatePluginPackage(pluginPackage, id); } catch (error) { toast(error.message, true); return; }
+  if (!state.settings.installedPlugins.includes(id)) state.settings.installedPlugins.push(id);
+  state.settings.installedPluginVersions[id] = pluginPackage.manifest.version;
   if (id === "gym") ensureGymMonth(gymSelectedMonth);
   save();
-  toast(`${plugin.name} v${plugin.version} installed.`);
-  navigate(id === "gym" ? "gym" : id === "ai-models" ? "ai" : "plugins");
+  contentIntegrationEditorOpen = false;
+  toast(`${plugin.name} v${pluginPackage.manifest.version} added to this app.`);
+  navigate(id === "gym" ? "gym" : id === "ai-models" ? "ai" : id === "content-studio" ? "content" : "plugins");
 }
 function removePlugin(id) {
   const plugin = pluginCatalog.find(item => item.id === id);
   if (!plugin) return;
   state.settings.installedPlugins = state.settings.installedPlugins.filter(item => item !== id);
+  delete state.settings.installedPluginVersions[id];
   if (id === "ai-models") {
     sessionApiKeys.clear();
     state.settings.gymAiModel = "";
+    state.settings.contentAiModel = "";
   }
   save();
   gymIntegrationEditorOpen = false;
@@ -450,8 +633,53 @@ async function exportBackup() {
 }
 function restoreBackup(file) {
   const reader=new FileReader();
-  reader.onload=()=>{try{const incoming=JSON.parse(String(reader.result));if(![1,2].includes(incoming.version)||!Array.isArray(incoming.tasks)||!Array.isArray(incoming.study)||!Array.isArray(incoming.health))throw new Error("Unsupported backup format");const defaults=starterData();state={...defaults,...incoming,version:2,settings:{...defaults.settings,...incoming.settings},gym:{...defaults.gym,...incoming.gym,months:incoming.gym?.months||{}}};state.settings.installedPlugins=Array.isArray(state.settings.installedPlugins)?state.settings.installedPlugins:[];state.settings.aiModels=Array.isArray(state.settings.aiModels)?state.settings.aiModels:[];sessionApiKeys.clear();save();applyTheme(state.settings.theme);applyTextPreferences();render();toast("Backup restored.");}catch{toast("That backup file could not be read.",true);}};
+  reader.onload=()=>{try{
+    const incoming=JSON.parse(String(reader.result));
+    if(![1,2,3].includes(incoming.version)||!Array.isArray(incoming.tasks)||!Array.isArray(incoming.study)||!Array.isArray(incoming.health))throw new Error("Unsupported backup format");
+    const defaults=starterData();
+    state={...defaults,...incoming,version:3,settings:{...defaults.settings,...incoming.settings},gym:{...defaults.gym,...incoming.gym,months:incoming.gym?.months||{}},content:{...defaults.content,...incoming.content,items:Array.isArray(incoming.content?.items)?incoming.content.items:[]}};
+    const packages={};
+    if(incoming.version>=3&&incoming.settings?.pluginPackages&&typeof incoming.settings.pluginPackages==="object")for(const [id,pluginPackage] of Object.entries(incoming.settings.pluginPackages)){try{validatePluginPackage(pluginPackage,id);packages[id]=pluginPackage;}catch{}}
+    state.settings.pluginPackages=packages;
+    state.settings.installedPluginVersions=incoming.version>=3&&incoming.settings?.installedPluginVersions?incoming.settings.installedPluginVersions:{};
+    state.settings.installedPlugins=incoming.version>=3&&Array.isArray(incoming.settings?.installedPlugins)?incoming.settings.installedPlugins.filter(id=>packages[id]&&state.settings.installedPluginVersions[id]===packages[id].manifest.version):[];
+    state.settings.aiModels=Array.isArray(state.settings.aiModels)?state.settings.aiModels:[];
+    state.gym=state.gym&&typeof state.gym==="object"?state.gym:defaults.gym;
+    state.content={...defaults.content,...(state.content&&typeof state.content==="object"?state.content:{}),items:Array.isArray(state.content?.items)?state.content.items:[]};
+    sessionApiKeys.clear();save();applyTheme(state.settings.theme);applyTextPreferences();render();toast("Backup restored.");
+  }catch(error){toast(error.message||"That backup file could not be read.",true);}};
   reader.readAsText(file);
+}
+function saveContentBriefFromForm(form) {
+  const item=state.content.items.find(entry=>entry.id===form.dataset.contentEditor);
+  if(!item)return false;
+  const data=new FormData(form);
+  for(const key of ["title","stage","platform","format","pillar","publishDate","audience","goal","research","titleOptions","hook","outline","script","shotList","thumbnail","caption","hashtags"]) item[key]=String(data.get(key)||"").trim();
+  item.updatedAt=new Date().toISOString();
+  save();
+  return true;
+}
+async function generateContentDraft(id) {
+  const item=state.content.items.find(entry=>entry.id===id);
+  const model=state.settings.aiModels.find(entry=>entry.id===state.settings.contentAiModel);
+  const apiKey=model&&sessionApiKeys.get(model.id);
+  if(!item||!model||!apiKey){toast("Open AI Models and enter the selected model's key for this session.",true);return;}
+  const summary={title:item.title,platform:item.platform,format:item.format,pillar:item.pillar,audience:item.audience,goal:item.goal,research:item.research,titleOptions:item.titleOptions,hook:item.hook,outline:item.outline,script:item.script,thumbnail:item.thumbnail,caption:item.caption,hashtags:item.hashtags};
+  const prompt=`Help me draft an original ${item.format} for ${item.platform}. Treat the supplied research as unverified notes: do not invent facts or citations; mark claims that need checking. Keep the creator's natural voice and avoid manipulative claims. Return sections for: 3 title options, opening hook, beat-by-beat outline/storyboard, a first script draft, visual/shot suggestions, thumbnail or cover concept, caption with a clear CTA, and optional relevant keywords. The creator will review and edit everything before publishing.\n\nChosen brief: ${JSON.stringify(summary)}`;
+  if(!confirm(`Send this content brief (idea, platform, audience, research notes, and any draft text) to ${model.name} at ${model.endpoint}? The provider receives the prompt and your API key for authentication. Review the provider's privacy terms. Continue?`))return;
+  contentDraftingId=id;
+  if(activeView==="content")render();
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),60000);
+  try{
+    const response=await fetch(endpointForModel(model.endpoint),{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},body:JSON.stringify({model:model.model,messages:[{role:"user",content:prompt}],temperature:0.7}),signal:controller.signal});
+    if(!response.ok)throw new Error(`Provider returned ${response.status}. Check the endpoint, API key, and model ID.`);
+    const payload=await response.json();
+    const answer=payload.choices?.[0]?.message?.content;
+    if(typeof answer!=="string"||!answer.trim())throw new Error("The provider returned an empty response.");
+    item.aiDraft=answer.trim();item.aiError="";item.updatedAt=new Date().toISOString();save();toast("AI draft saved in this content brief. Review it before publishing.");
+  }catch(error){item.aiError=error.name==="AbortError"?"The model took too long. Try again when ready.":(error.message||"Could not reach this provider; check its CORS and endpoint settings.");toast(item.aiError,true);}
+  finally{clearTimeout(timeout);contentDraftingId="";if(activeView==="content")render();}
 }
 function handleClick(event) {
   const nav=event.target.closest("[data-view]");if(nav){navigate(nav.dataset.view);return;}
@@ -460,11 +688,21 @@ function handleClick(event) {
   const gymMonthButton=event.target.closest("[data-gym-month]");if(gymMonthButton){const date=new Date(`${gymSelectedMonth}-01T12:00:00`);date.setMonth(date.getMonth()+(gymMonthButton.dataset.gymMonth==="next"?1:-1));gymSelectedMonth=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;ensureGymMonth(gymSelectedMonth);gymSelectedDate=`${gymSelectedMonth}-01`;save();render();return;}
   const removeExercise=event.target.closest("[data-delete-gym-exercise]");if(removeExercise){const [date,id]=removeExercise.dataset.deleteGymExercise.split("|");const day=state.gym.months[date.slice(0,7)]?.[date];if(day){day.exercises=day.exercises.filter(item=>item.id!==id);delete day.completed[id];save();render();}return;}
   const removeModel=event.target.closest("[data-delete-ai-model]");if(removeModel){const id=removeModel.dataset.deleteAiModel;state.settings.aiModels=state.settings.aiModels.filter(item=>item.id!==id);sessionApiKeys.delete(id);if(state.settings.gymAiModel===id)state.settings.gymAiModel="";save();render();toast("Model removed from this device.");return;}
-  const action=event.target.closest("[data-action]");if(action){switch(action.dataset.action){case"add-task":addTaskDialog();break;case"add-project":addProjectDialog();break;case"add-book":addBookDialog();break;case"add-note":addNoteDialog();break;case"install-plugin":installPlugin(action.dataset.plugin);break;case"remove-plugin":removePlugin(action.dataset.plugin);break;case"toggle-gym-ai":gymIntegrationEditorOpen=!gymIntegrationEditorOpen;render();break;case"toggle-gym-day":{const day=state.gym.months[gymSelectedMonth][gymSelectedDate];day.kind=day.kind==="workout"?"recovery":"workout";day.title=day.kind==="workout"?"Custom workout":"Rest & recovery";if(day.kind==="workout")day.focus="Choose comfortable movements and controlled form.";save();render();break;}}return;}
+  const action=event.target.closest("[data-action]");if(action){switch(action.dataset.action){
+    case"add-task":addTaskDialog();break;case"add-project":addProjectDialog();break;case"add-book":addBookDialog();break;case"add-note":addNoteDialog();break;
+    case"download-plugin":downloadPlugin(action.dataset.plugin);break;case"install-plugin":installPlugin(action.dataset.plugin);break;case"remove-plugin":removePlugin(action.dataset.plugin);break;
+    case"refresh-plugin-catalog":refreshPluginCatalog();toast("Checking the GitHub plugin catalog…");break;case"import-plugin-file":$("#plugin-import-file")?.click();break;
+    case"toggle-gym-ai":gymIntegrationEditorOpen=!gymIntegrationEditorOpen;render();break;case"toggle-content-ai":contentIntegrationEditorOpen=!contentIntegrationEditorOpen;render();break;
+    case"generate-content-draft":{const form=action.closest("form");if(form)saveContentBriefFromForm(form);generateContentDraft(action.dataset.contentId);break;}
+    case"remove-content":if(confirm("Remove this content item from your device?")){state.content.items=state.content.items.filter(item=>item.id!==action.dataset.contentId);save();render();toast("Content item removed.");}break;
+    case"toggle-gym-day":{const day=state.gym.months[gymSelectedMonth][gymSelectedDate];day.kind=day.kind==="workout"?"recovery":"workout";day.title=day.kind==="workout"?"Custom workout":"Rest & recovery";if(day.kind==="workout")day.focus="Choose comfortable movements and controlled form.";save();render();break;}
+  }return;}
   const deleteButton=event.target.closest("[data-delete]");if(deleteButton){if(!confirm("Remove this item from your local workspace?"))return;const collection=deleteButton.dataset.delete,id=deleteButton.dataset.id;state[collection]=state[collection].filter(x=>x.id!==id);save();render();toast("Item removed.");return;}
   const deleteTask=event.target.closest("[data-delete-task]");if(deleteTask){if(!confirm("Remove this task?"))return;state.tasks=state.tasks.filter(x=>x.id!==deleteTask.dataset.deleteTask);save();render();return;}
 }
 function handleChange(event) {
+  if(event.target.id==="plugin-import-file"){const file=event.target.files?.[0];if(file)importPluginFile(file);event.target.value="";return;}
+  const contentCheck=event.target.closest("[data-content-check]");if(contentCheck){const [id,index]=contentCheck.dataset.contentCheck.split("|");const item=state.content.items.find(entry=>entry.id===id);if(item){item.checklist=item.checklist||{};item.checklist[index]=contentCheck.checked;save();}return;}
   const gymCompletion=event.target.closest("[data-gym-complete]");if(gymCompletion){const [date,id]=gymCompletion.dataset.gymComplete.split("|");const day=state.gym.months[date.slice(0,7)]?.[date];if(day){day.completed=day.completed||{};day.completed[id]=gymCompletion.checked;save();render();}return;}
   const taskBox=event.target.closest("[data-task]");if(taskBox){const task=state.tasks.find(x=>x.id===taskBox.dataset.task);if(task){task.done=taskBox.checked;save();render();}return;}
   const project=event.target.closest("[data-project-status]");if(project){const item=state.projects.find(x=>x.id===project.dataset.projectStatus);if(item){item.status=project.value;save();toast("Project status updated.");}return;}
@@ -472,6 +710,9 @@ function handleChange(event) {
 }
 async function handleSubmit(event) {
   const form=event.target;
+  if(form.id==="content-create-form"){event.preventDefault();const pluginPackage=activePluginPackage("content-studio");if(!pluginPackage)return;const data=new FormData(form),template=pluginPackage.module.templates.find(item=>item.id===String(data.get("template")))||pluginPackage.module.templates[0],title=String(data.get("title")||"").trim();if(!title||!template)return;state.content.items.unshift({id:uid(),title,stage:"Idea",platform:String(data.get("platform")),format:String(data.get("format")),pillar:String(data.get("pillar")),publishDate:String(data.get("publishDate")||""),audience:"",goal:"",research:"",titleOptions:template.titleOptions||"",hook:template.hook||"",outline:template.outline||"",script:template.script||"",shotList:template.shotList||"",thumbnail:template.thumbnail||"",caption:template.caption||"",hashtags:"",checklist:{},template:template.id,createdAt:new Date().toISOString()});save();render();toast("Content idea added to your pipeline.");return;}
+  if(form.dataset.contentEditor){event.preventDefault();if(saveContentBriefFromForm(form)){render();toast("Content brief saved on this device.");}return;}
+  if(form.id==="content-ai-link-form"){event.preventDefault();const id=String(new FormData(form).get("modelId")||"");if(!isPluginInstalled("ai-models")||!state.settings.aiModels.some(item=>item.id===id))return;state.settings.contentAiModel=id;contentIntegrationEditorOpen=false;save();render();toast("Content Studio is connected to the selected model.");return;}
   if(form.id==="ai-model-form"){event.preventDefault();const data=new FormData(form),name=String(data.get("name")||"").trim(),model=String(data.get("model")||"").trim(),endpoint=String(data.get("endpoint")||"").trim(),apiKey=String(data.get("apiKey")||"").trim();if(!name||!model||!endpoint||!apiKey)return;try{endpointForModel(endpoint);}catch(error){toast(error.message,true);return;}const id=uid();state.settings.aiModels.push({id,name,model,endpoint});sessionApiKeys.set(id,apiKey);save();render();toast("Model profile saved. Its API key is ready for this session only.");return;}
   if(form.dataset.aiKeyForm){event.preventDefault();const id=form.dataset.aiKeyForm,key=String(new FormData(form).get("apiKey")||"").trim();if(!key)return;sessionApiKeys.set(id,key);render();toast("API key set in memory for this session.");return;}
   if(form.id==="gym-ai-link-form"){event.preventDefault();const id=String(new FormData(form).get("modelId")||"");if(!state.settings.aiModels.some(item=>item.id===id))return;state.settings.gymAiModel=id;gymIntegrationEditorOpen=false;save();render();toast("Gym is connected to the selected model.");return;}
@@ -488,6 +729,18 @@ async function handleSubmit(event) {
 document.addEventListener("click",handleClick);
 document.addEventListener("change",handleChange);
 document.addEventListener("submit",handleSubmit);
+async function configureNativeStatusBar() {
+  if (window.Capacitor?.getPlatform?.() !== "android") return;
+  document.documentElement.classList.add("android-native");
+  const statusBar = window.Capacitor?.Plugins?.StatusBar;
+  if (!statusBar) return;
+  try {
+    await statusBar.setOverlaysWebView({ overlay: false });
+    await statusBar.setBackgroundColor({ color: "#10120f" });
+    await statusBar.setStyle({ style: "LIGHT" });
+  } catch (error) { console.info("Using the configured Android status bar defaults.", error); }
+}
+configureNativeStatusBar();
 $("#theme-select").addEventListener("change",event=>applyTheme(event.target.value));
 $("#text-size-select").addEventListener("change",event=>{state.settings.textSize=event.target.value;applyTextPreferences();save();});
 $("#font-style-select").addEventListener("change",event=>{state.settings.fontStyle=event.target.value;applyTextPreferences();save();});
